@@ -1,0 +1,29 @@
+/* Estilos próprios do Projeto 2 (complementam o Bootstrap). */
+
+/* Status dos ambientes: mesmos valores do ENUM da tabela ambientes. */
+.status-criado      { background-color: #0d6efd; color: #fff; }
+.status-em_execucao { background-color: #198754; color: #fff; }
+.status-terminado   { background-color: #6c757d; color: #fff; }
+.status-erro        { background-color: #dc3545; color: #fff; }
+
+/* Mensagem de página sem conteúdo. */
+.estado-vazio {
+    padding: 3rem 1rem;
+    text-align: center;
+    color: #6c757d;
+    border: 2px dashed #dee2e6;
+    border-radius: .5rem;
+}
+
+/* Visualizador de output (X5) e conteúdo de scripts (X2). */
+.output {
+    max-height: 60vh;
+    overflow: auto;
+    padding: 1rem;
+    background-color: #111;
+    color: #e6e6e6;
+    border-radius: .375rem;
+    font-size: .85rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+}

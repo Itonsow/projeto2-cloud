@@ -11,3 +11,23 @@ function listar_scripts(): array
 
     return db()->query($sql)->fetchAll();
 }
+
+
+function salvar_script(
+    string $nome,
+    string $descricao,
+    string $conteudo
+): int {
+    $sql = 'INSERT INTO scripts (nome, descricao, conteudo)
+            VALUES (:nome, :descricao, :conteudo)';
+
+    $stmt = db()->prepare($sql);
+
+    $stmt->execute([
+        'nome' => $nome,
+        'descricao' => $descricao === '' ? null : $descricao,
+        'conteudo' => $conteudo,
+    ]);
+
+    return (int) db()->lastInsertId();
+}

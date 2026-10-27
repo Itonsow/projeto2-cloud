@@ -1,11 +1,7 @@
 <?php
-// Biblioteca de scripts: envio por formulário e lista dos scripts salvos para reuso.
-// Os dados vêm de lib/scripts.php; enquanto ela não existir, a lista fica vazia.
-$lib = __DIR__ . '/lib/scripts.php';
-if (is_file($lib)) {
-    require_once $lib;
-}
-$scripts = function_exists('listar_scripts') ? listar_scripts() : [];
+// Biblioteca de scripts: consulta os dados reais do banco.
+require_once __DIR__ . '/lib/scripts.php';
+$scripts = listar_scripts();
 
 $titulo = 'Scripts';
 $pagina = 'scripts';

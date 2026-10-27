@@ -21,3 +21,25 @@ function badge_status(string $status): string
     $info = STATUS_AMBIENTE[$status] ?? ['rotulo' => $status, 'classe' => 'status-criado'];
     return '<span class="badge ' . e($info['classe']) . '">' . e($info['rotulo']) . '</span>';
 }
+
+// Data do banco (Y-m-d H:i:s) no formato brasileiro.
+function data_br(?string $data): string
+{
+    return $data ? date('d/m/Y H:i', strtotime($data)) : '';
+}
+
+// Alertas de retorno das actions, que redirecionam com ?ok=mensagem ou ?erro=mensagem.
+function alerta_flash(): string
+{
+    $html = '';
+    foreach (['ok' => 'success', 'erro' => 'danger'] as $param => $cor) {
+        $msg = $_GET[$param] ?? '';
+        if (is_string($msg) && $msg !== '') {
+            $html .= '<div class="alert alert-' . $cor . ' alert-dismissible fade show" role="alert">'
+                . e($msg)
+                . '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>'
+                . '</div>';
+        }
+    }
+    return $html;
+}

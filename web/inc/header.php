@@ -45,3 +45,4 @@ $menu = [
 </nav>
 <main class="container flex-grow-1 py-4">
     <h1 class="h3 mb-4"><?= e($titulo) ?></h1>
+    <?= alerta_flash() ?>

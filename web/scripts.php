@@ -1,6 +1,6 @@
 <?php
 // Biblioteca de scripts: envio por formulário e lista dos scripts salvos para reuso.
-// Os dados vêm de lib/scripts.php (M3); enquanto ela não existir, a lista fica vazia.
+// Os dados vêm de lib/scripts.php; enquanto ela não existir, a lista fica vazia.
 $lib = __DIR__ . '/lib/scripts.php';
 if (is_file($lib)) {
     require_once $lib;
@@ -33,14 +33,13 @@ require __DIR__ . '/inc/header.php';
                         <label class="btn btn-outline-secondary" for="origem-texto">Colar texto</label>
                     </div>
 
-                    <!-- Só o bloco visível fica habilitado, então o POST leva arquivo OU conteudo. -->
-                    <div class="mb-3" data-origem="arquivo">
+                    <div class="mb-3" data-opcao="origem:arquivo">
                         <label for="arquivo" class="form-label">Arquivo</label>
                         <input type="file" class="form-control" id="arquivo" name="arquivo"
                                accept=".sh,text/x-sh,text/plain" data-max-bytes="1048576" required>
                         <div class="form-text">Arquivo .sh de até 1 MB.</div>
                     </div>
-                    <div class="mb-3" data-origem="texto" hidden>
+                    <div class="mb-3" data-opcao="origem:texto" hidden>
                         <label for="conteudo" class="form-label">Conteúdo</label>
                         <textarea class="form-control font-monospace" id="conteudo" name="conteudo" rows="10"
                                   placeholder="#!/bin/bash&#10;echo &quot;olá&quot;" required disabled></textarea>

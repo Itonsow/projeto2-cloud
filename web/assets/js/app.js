@@ -1,5 +1,3 @@
-// JavaScript da interface. O auto-refresh do painel (X4) e do output (X5) entra aqui.
-
 // Pede confirmação antes de enviar formulários marcados com data-confirmar.
 document.addEventListener('submit', function (ev) {
     const msg = ev.target.dataset.confirmar;
@@ -8,25 +6,29 @@ document.addEventListener('submit', function (ev) {
     }
 });
 
-// Scripts: alterna entre enviar arquivo e colar texto. O bloco escondido fica
-// desabilitado para não ser validado nem enviado no POST.
-function mostrarOrigem(valor) {
-    document.querySelectorAll('[data-origem]').forEach(function (bloco) {
-        const ativo = bloco.dataset.origem === valor;
+// Blocos que dependem de um radio: data-opcao="grupo:valor" só aparece quando o
+// radio name="grupo" está com esse valor (origem do script, tipo de execução).
+// O bloco escondido fica desabilitado para não ser validado nem enviado no POST.
+function mostrarOpcao(grupo, valor) {
+    document.querySelectorAll('[data-opcao^="' + grupo + ':"]').forEach(function (bloco) {
+        const ativo = bloco.dataset.opcao === grupo + ':' + valor;
         bloco.hidden = !ativo;
-        bloco.querySelectorAll('input, textarea').forEach(function (campo) {
+        bloco.querySelectorAll('input, textarea, select').forEach(function (campo) {
             campo.disabled = !ativo;
         });
     });
 }
 
-document.querySelectorAll('input[name="origem"]').forEach(function (radio) {
+document.querySelectorAll('input[type="radio"]').forEach(function (radio) {
+    if (!document.querySelector('[data-opcao^="' + radio.name + ':"]')) {
+        return;
+    }
     radio.addEventListener('change', function () {
-        mostrarOrigem(radio.value);
+        mostrarOpcao(radio.name, radio.value);
     });
     // O navegador pode restaurar a opção marcada ao voltar para a página.
     if (radio.checked) {
-        mostrarOrigem(radio.value);
+        mostrarOpcao(radio.name, radio.value);
     }
 });
 

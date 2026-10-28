@@ -22,6 +22,12 @@ visudo -cf /opt/projeto2/provision/sudoers/projeto2 #confere/indica o arquivo
 cp /opt/projeto2/provision/sudoers/projeto2 /etc/sudoers.d/projeto2 #copia a regra p o sudo poder usar
 chmod 0440 /etc/sudoers.d/projeto2 #protecao apenas dono e grupo podem ler, ninguem pode escrever ou executar
 
+# instala o servico que prepara os cgroups a cada boot
+cp /opt/projeto2/provision/systemd/projeto2-init.service /etc/systemd/system/
+systemctl daemon-reload # le o arquivo do servico
+systemctl enable projeto2-init.service # habilita nos proximos boots
+systemctl restart projeto2-init.service # executa agora
+
 if [ -f /opt/projeto2/provision/db.sh ]; then #verifica se o arquivo existe
 	bash /opt/projeto2/provision/db.sh
 fi

@@ -1,16 +1,24 @@
 <?php
 // Formulário de criação de ambiente. Envia para actions/criar_ambiente.php
 // com os campos do contrato. Os scripts do select vêm de lib/scripts.php.
-$lib = __DIR__ . '/lib/scripts.php';
-if (is_file($lib)) {
-    require_once $lib;
+require_once __DIR__ . '/lib/scripts.php';
+
+$erro_dados = null;
+try {
+    $scripts = listar_scripts();
+} catch (Throwable $e) {
+    error_log((string) $e);
+    $scripts = [];
+    $erro_dados = 'Não foi possível carregar os scripts salvos. Verifique se o MySQL está ativo.';
 }
-$scripts = function_exists('listar_scripts') ? listar_scripts() : [];
 
 $titulo = 'Novo ambiente';
 $pagina = 'novo';
 require __DIR__ . '/inc/header.php';
 ?>
+<?php if ($erro_dados): ?>
+    <div class="alert alert-danger"><?= e($erro_dados) ?></div>
+<?php endif; ?>
 <form method="post" action="/actions/criar_ambiente.php" class="row g-4">
     <div class="col-lg-5">
         <div class="card h-100">

@@ -7,7 +7,7 @@ if (is_file($lib)) {
 
 function pasta_ambiente(int $id): string
 {
-    return rtrim(getenv('P2_ENVS_DIR') ?: '/var/lib/projeto2/envs', '/') . '/' . $id;
+    return rtrim(getenv('P2_ENVS_DIR') ?: '/var/lib/projeto2/envs', '/') . '/env-' . $id;
 }
 
 function pasta_cgroup(int $id): string

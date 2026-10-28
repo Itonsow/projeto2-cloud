@@ -1,0 +1,12 @@
+[Unit]
+Description=Inicializa os cgroups do projeto2
+Before=apache2.service
+
+[Service]
+# executa o comando uma vez e termina
+Type=oneshot
+ExecStart=/usr/local/bin/envctl init
+
+[Install]
+# inicia junto com os servicos normais do sistema
+WantedBy=multi-user.target

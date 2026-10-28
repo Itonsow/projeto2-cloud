@@ -1,0 +1,6 @@
+# tava dando erro no echo e dando um caractere vazio o windows e o linux salvam o enter de jeitos diferentes
+# aqui usamos o jeito do linux (lf), pra evitar erros nos scripts da vm
+* text=auto eol=lf
+# * todos os arq
+# o git identifica quais sao os arq de txt
+# usa o formato de quebra de linha do linux

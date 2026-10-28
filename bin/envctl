@@ -5,7 +5,7 @@ CGROUP_BASE="/sys/fs/cgroup/projeto2"
 ENVS_BASE="/var/lib/projeto2/envs"
 
 valida_id() {
-    local id="${1:-}"
+    id="$1"
     if [[ ! "$id" =~ ^[0-9]+$ ]]; then
         echo '{"sucesso":false,"erro":"ID invalido (deve ser numerico)"}'
         exit 1
@@ -14,17 +14,17 @@ valida_id() {
 
 cmd_init() {
     mkdir -p "$CGROUP_BASE" "$ENVS_BASE"
-    echo "+cpu +memory +io +pids" > /sys/fs/cgroup/cgroup.subtree_control 2>/dev/null || true
-    echo "+cpu +memory +io +pids" > "$CGROUP_BASE/cgroup.subtree_control" 2>/dev/null || true
+    echo "+cpu +memory +io" > /sys/fs/cgroup/cgroup.subtree_control 2>/dev/null || true
+    echo "+cpu +memory +io" > "$CGROUP_BASE/cgroup.subtree_control" 2>/dev/null || true
     echo '{"sucesso":true,"mensagem":"init ok"}'
 }
 
 cmd_create() {
-    local id="${1:-}"
+    id="$1"
     valida_id "$id"
     shift
 
-    local cpu=50 mem=256 io_r="" io_w="" net=0
+    cpu=50 mem=256 io_r="" io_w="" net=0
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --cpu) cpu="$2"; shift 2 ;;
@@ -36,22 +36,18 @@ cmd_create() {
         esac
     done
 
-    local cgroup="$CGROUP_BASE/env-$id"
-    local dir="$ENVS_BASE/env-$id"
+    cgroup="$CGROUP_BASE/env-$id"
+    dir="$ENVS_BASE/env-$id"
     mkdir -p "$cgroup" "$dir"
 
     echo "$((cpu * 1000)) 100000" > "$cgroup/cpu.max"
     echo "$((mem * 1024 * 1024))" > "$cgroup/memory.max"
-    echo 0 > "$cgroup/memory.swap.max" 2>/dev/null || true
-    echo 256 > "$cgroup/pids.max" 2>/dev/null || true
 
     if [[ -n "$io_r" || -n "$io_w" ]]; then
-        local dev
         dev=$(findmnt -nvo SOURCE / 2>/dev/null || true)
-        local maj_min
         maj_min=$(lsblk -no MAJ:MIN "$dev" 2>/dev/null | head -n1 | tr -d ' ' || true)
         if [[ -n "$maj_min" && -f "$cgroup/io.max" ]]; then
-            local limite=""
+            limite=""
             [[ -n "$io_r" ]] && limite="rbps=$((io_r * 1024 * 1024))"
             [[ -n "$io_w" ]] && limite="${limite}${limite:+ }wbps=$((io_w * 1024 * 1024))"
             echo "$maj_min $limite" > "$cgroup/io.max" 2>/dev/null || true
@@ -64,22 +60,22 @@ cmd_create() {
 }
 
 cmd_start() {
-    local id="${1:-}"
+    id="$1"
     valida_id "$id"
 
-    local cgroup="$CGROUP_BASE/env-$id"
-    local dir="$ENVS_BASE/env-$id"
+    cgroup="$CGROUP_BASE/env-$id"
+    dir="$ENVS_BASE/env-$id"
 
     if [[ ! -d "$cgroup" || ! -f "$dir/script.sh" ]]; then
         echo '{"sucesso":false,"erro":"ambiente ou script.sh nao encontrado"}'
         exit 1
     fi
 
-    local net_flag=""
+    net_flag=""
     [[ -f "$dir/net_isolate" ]] && net_flag="--net"
 
     chmod +x "$dir/script.sh" 2>/dev/null || true
-    rm -f "$dir/exit_code"
+    rm -f "$dir/exit_code" "$dir/stopped"
 
     setsid bash -c "
         echo \$\$ > '$cgroup/cgroup.procs'
@@ -90,15 +86,60 @@ cmd_start() {
         echo \$? > '$dir/exit_code'
     " >/dev/null 2>&1 &
 
-    local pid=$!
+    pid=$!
     echo "$pid" > "$dir/pid"
 
     echo "{\"sucesso\":true,\"id\":$id,\"pid\":$pid,\"status\":\"em_execucao\"}"
 }
 
-cmd_status() { valida_id "${1:-}"; echo '{"sucesso":false,"erro":"status sera implementado no C4"}'; }
-cmd_stop()   { valida_id "${1:-}"; echo '{"sucesso":false,"erro":"stop sera implementado no C4"}'; }
-cmd_remove() { valida_id "${1:-}"; echo '{"sucesso":false,"erro":"remove sera implementado no C4"}'; }
+cmd_status() {
+    id="$1"
+    valida_id "$id"
+    cgroup="$CGROUP_BASE/env-$id"
+    dir="$ENVS_BASE/env-$id"
+    [[ -d "$dir" ]] || { echo '{"sucesso":false,"erro":"ambiente nao encontrado"}'; exit 1; }
+
+    st="criado"
+    pid=$(cat "$dir/pid" 2>/dev/null || echo "")
+    mem=$(cat "$cgroup/memory.current" 2>/dev/null || echo 0)
+    ec="null"
+
+    if [[ -f "$dir/stopped" ]]; then
+        st="terminado"
+    elif [[ -f "$dir/exit_code" ]]; then
+        ec=$(cat "$dir/exit_code")
+        [[ "$ec" -eq 0 ]] && st="terminado" || st="erro"
+    elif [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+        st="em_execucao"
+    fi
+
+    echo "{\"sucesso\":true,\"id\":$id,\"status\":\"$st\",\"pid\":\"$pid\",\"exit_code\":$ec,\"memoria_bytes\":$mem}"
+}
+
+cmd_stop() {
+    id="$1"
+    valida_id "$id"
+    cgroup="$CGROUP_BASE/env-$id"
+    dir="$ENVS_BASE/env-$id"
+    [[ -d "$dir" ]] || { echo '{"sucesso":false,"erro":"ambiente nao encontrado"}'; exit 1; }
+
+    touch "$dir/stopped"
+    [[ -f "$cgroup/cgroup.kill" ]] && echo 1 > "$cgroup/cgroup.kill" 2>/dev/null || true
+    echo "{\"sucesso\":true,\"id\":$id,\"status\":\"terminado\"}"
+}
+
+cmd_remove() {
+    id="$1"
+    valida_id "$id"
+    cgroup="$CGROUP_BASE/env-$id"
+    dir="$ENVS_BASE/env-$id"
+
+    [[ -f "$cgroup/cgroup.kill" ]] && echo 1 > "$cgroup/cgroup.kill" 2>/dev/null || true
+    sleep 0.1
+    rmdir "$cgroup" 2>/dev/null || true
+    rm -rf "$dir"
+    echo "{\"sucesso\":true,\"id\":$id,\"mensagem\":\"removido\"}"
+}
 
 subcmd="${1:-}"
 shift || true

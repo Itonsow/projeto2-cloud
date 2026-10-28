@@ -1,13 +1,9 @@
 <?php
-// Funções utilitárias usadas por todas as páginas.
-
-// Escapa texto para exibir com segurança no HTML.
 function e($texto): string
 {
     return htmlspecialchars((string) $texto, ENT_QUOTES, 'UTF-8');
 }
 
-// Rótulo legível e classe CSS de cada status do ambiente (ENUM do banco).
 const STATUS_AMBIENTE = [
     'criado'      => ['rotulo' => 'Criado',      'classe' => 'status-criado'],
     'em_execucao' => ['rotulo' => 'Em execução', 'classe' => 'status-em_execucao'],
@@ -15,20 +11,51 @@ const STATUS_AMBIENTE = [
     'erro'        => ['rotulo' => 'Erro',        'classe' => 'status-erro'],
 ];
 
-// Badge colorido do status, usado no painel e na página do ambiente.
 function badge_status(string $status): string
 {
     $info = STATUS_AMBIENTE[$status] ?? ['rotulo' => $status, 'classe' => 'status-criado'];
     return '<span class="badge ' . e($info['classe']) . '">' . e($info['rotulo']) . '</span>';
 }
 
-// Data do banco (Y-m-d H:i:s) no formato brasileiro.
+function detalhe_status(array $amb): string
+{
+    if (!empty($amb['motivo'])) {
+        return $amb['motivo'];
+    }
+    if ($amb['exit_code'] !== null && $amb['status'] !== 'em_execucao') {
+        return 'código de saída ' . $amb['exit_code'];
+    }
+    return '';
+}
+
+const TIPO_EXECUCAO = [
+    'comando'  => 'Comando único',
+    'comandos' => 'Vários comandos',
+    'script'   => 'Script salvo',
+];
+
+function formatar_mb(int $bytes): string
+{
+    return number_format($bytes / 1048576, 1, ',', '.') . ' MB';
+}
+
+function memoria_texto(?int $bytes, int $limite_mb): string
+{
+    return $bytes === null ? '—' : formatar_mb($bytes) . ' de ' . $limite_mb . ' MB';
+}
+
+function limites_texto(array $amb): string
+{
+    $io = fn ($mbps) => $mbps === null ? 'livre' : $mbps . ' MB/s';
+    return 'CPU ' . $amb['cpu_percentual'] . '% · ' . $amb['memoria_mb'] . ' MB · '
+        . 'IO ' . $io($amb['io_leitura_mbps']) . ' / ' . $io($amb['io_escrita_mbps']);
+}
+
 function data_br(?string $data): string
 {
     return $data ? date('d/m/Y H:i', strtotime($data)) : '';
 }
 
-// Alertas de retorno das actions, que redirecionam com ?ok=mensagem ou ?erro=mensagem.
 function alerta_flash(): string
 {
     $html = '';

@@ -1,7 +1,5 @@
 <?php
-// Cabeçalho comum. Antes de incluir, a página define:
-//   $titulo -> texto da aba do navegador e do <h1>
-//   $pagina -> item do menu a destacar ('ambientes', 'novo' ou 'scripts')
+// Cabeçalho 
 require_once __DIR__ . '/helpers.php';
 
 $titulo = $titulo ?? 'Projeto 2';
@@ -22,7 +20,8 @@ $menu = [
     <link rel="stylesheet" href="/assets/vendor/bootstrap/bootstrap.min.css">
     <link rel="stylesheet" href="/assets/css/app.css">
 </head>
-<body class="d-flex flex-column min-vh-100">
+<body class="d-flex flex-column min-vh-100"
+      data-status-rotulos="<?= e(json_encode(array_map(fn ($s) => $s['rotulo'], STATUS_AMBIENTE), JSON_UNESCAPED_UNICODE)) ?>">
 <nav class="navbar navbar-expand-md navbar-dark bg-dark">
     <div class="container">
         <a class="navbar-brand" href="/index.php">Projeto 2 · Ambientes isolados</a>

@@ -32,7 +32,92 @@ document.querySelectorAll('input[type="radio"]').forEach(function (radio) {
     }
 });
 
-// Recusa no navegador arquivos maiores que data-max-bytes (o servidor também valida).
+// Status dos ambientes: a cada 3 s consulta api/status.php e atualiza cada
+// elemento data-ambiente="id" (linha do painel ou card da página do ambiente).
+const ROTULOS_STATUS = JSON.parse(document.body.dataset.statusRotulos || '{}');
+
+// Mesma regra de detalhe_status() no helpers.php.
+function detalheStatus(amb) {
+    if (amb.motivo) {
+        return amb.motivo;
+    }
+    if (amb.exit_code !== null && amb.status !== 'em_execucao') {
+        return 'código de saída ' + amb.exit_code;
+    }
+    return '';
+}
+
+function formatarMb(bytes) {
+    return (bytes / 1048576).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' MB';
+}
+
+function aplicarStatus(elemento, amb) {
+    const campo = function (nome) {
+        return elemento.querySelector('[data-campo="' + nome + '"]');
+    };
+
+    const status = campo('status');
+    if (status) {
+        const badge = document.createElement('span');
+        badge.className = 'badge status-' + amb.status;
+        badge.textContent = ROTULOS_STATUS[amb.status] || amb.status;
+        status.replaceChildren(badge);
+    }
+    if (campo('motivo')) {
+        campo('motivo').textContent = detalheStatus(amb);
+    }
+    if (campo('exit_code')) {
+        campo('exit_code').textContent = amb.exit_code === null ? '—' : amb.exit_code;
+    }
+    if (campo('memoria')) {
+        campo('memoria').textContent = amb.mem_bytes === null
+            ? '—'
+            : formatarMb(amb.mem_bytes) + ' de ' + elemento.dataset.memLimite + ' MB';
+    }
+    elemento.querySelectorAll('[data-so-em-execucao]').forEach(function (item) {
+        item.hidden = amb.status !== 'em_execucao';
+    });
+}
+
+async function atualizarStatus() {
+    let lista;
+    try {
+        const resposta = await fetch('/api/status.php', { cache: 'no-store' });
+        if (!resposta.ok) {
+            return;
+        }
+        lista = await resposta.json();
+    } catch (erro) {
+        return; 
+    }
+
+    const porId = new Map(lista.map(function (amb) {
+        return [String(amb.id), amb];
+    }));
+
+    const painel = document.querySelector('[data-painel]');
+    if (painel) {
+        const naTela = Array.from(painel.querySelectorAll('[data-ambiente]')).map(function (linha) {
+            return linha.dataset.ambiente;
+        });
+        if (naTela.length !== porId.size || naTela.some(function (id) { return !porId.has(id); })) {
+            location.reload();
+            return;
+        }
+    }
+
+    document.querySelectorAll('[data-ambiente]').forEach(function (elemento) {
+        const amb = porId.get(elemento.dataset.ambiente);
+        if (amb) {
+            aplicarStatus(elemento, amb);
+        }
+    });
+}
+
+if (document.querySelector('[data-painel], [data-ambiente]')) {
+    setInterval(atualizarStatus, 3000);
+}
+
 document.querySelectorAll('input[type="file"][data-max-bytes]').forEach(function (campo) {
     campo.addEventListener('change', function () {
         const arquivo = campo.files[0];

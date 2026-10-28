@@ -1,12 +1,23 @@
 <?php
 // Biblioteca de scripts: consulta os dados reais do banco.
 require_once __DIR__ . '/lib/scripts.php';
-$scripts = listar_scripts();
+
+$erro_dados = null;
+try {
+    $scripts = listar_scripts();
+} catch (Throwable $e) {
+    error_log((string) $e);
+    $scripts = [];
+    $erro_dados = 'Não foi possível carregar os scripts. Verifique se o MySQL está ativo.';
+}
 
 $titulo = 'Scripts';
 $pagina = 'scripts';
 require __DIR__ . '/inc/header.php';
 ?>
+<?php if ($erro_dados): ?>
+    <div class="alert alert-danger"><?= e($erro_dados) ?></div>
+<?php endif; ?>
 <div class="row g-4">
     <div class="col-lg-5">
         <div class="card">

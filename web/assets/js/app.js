@@ -6,9 +6,6 @@ document.addEventListener('submit', function (ev) {
     }
 });
 
-// Blocos que dependem de um radio: data-opcao="grupo:valor" só aparece quando o
-// radio name="grupo" está com esse valor (origem do script, tipo de execução).
-// O bloco escondido fica desabilitado para não ser validado nem enviado no POST.
 function mostrarOpcao(grupo, valor) {
     document.querySelectorAll('[data-opcao^="' + grupo + ':"]').forEach(function (bloco) {
         const ativo = bloco.dataset.opcao === grupo + ':' + valor;
@@ -26,17 +23,13 @@ document.querySelectorAll('input[type="radio"]').forEach(function (radio) {
     radio.addEventListener('change', function () {
         mostrarOpcao(radio.name, radio.value);
     });
-    // O navegador pode restaurar a opção marcada ao voltar para a página.
     if (radio.checked) {
         mostrarOpcao(radio.name, radio.value);
     }
 });
 
-// Status dos ambientes: a cada 3 s consulta api/status.php e atualiza cada
-// elemento data-ambiente="id" (linha do painel ou card da página do ambiente).
 const ROTULOS_STATUS = JSON.parse(document.body.dataset.statusRotulos || '{}');
 
-// Mesma regra de detalhe_status() no helpers.php.
 function detalheStatus(amb) {
     if (amb.motivo) {
         return amb.motivo;
@@ -116,6 +109,36 @@ async function atualizarStatus() {
 
 if (document.querySelector('[data-painel], [data-ambiente]')) {
     setInterval(atualizarStatus, 3000);
+}
+
+const output = document.getElementById('output');
+
+async function atualizarOutput() {
+    let resposta;
+    let texto;
+    try {
+        resposta = await fetch(output.dataset.url, { cache: 'no-store' });
+        if (resposta.status !== 404 && !resposta.ok) {
+            return;
+        }
+        texto = resposta.status === 404 ? '' : await resposta.text();
+    } catch (erro) {
+        return;
+    }
+
+    const novo = texto || '(sem output ainda)';
+    if (novo !== output.textContent) {
+        output.textContent = novo;
+        if (document.getElementById('acompanhar').checked) {
+            output.scrollTop = output.scrollHeight;
+        }
+    }
+    document.getElementById('output-truncado').hidden = resposta.headers.get('X-Output-Truncado') !== '1';
+}
+
+if (output) {
+    atualizarOutput();
+    setInterval(atualizarOutput, 2000);
 }
 
 document.querySelectorAll('input[type="file"][data-max-bytes]').forEach(function (campo) {

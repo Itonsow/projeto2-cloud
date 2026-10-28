@@ -8,3 +8,5 @@ com limites de CPU, memória e IO por ambiente.
 ```bash
 vagrant up
 ```
+
+Depois acesse `http://localhost:8080`.

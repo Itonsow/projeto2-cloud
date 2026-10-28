@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CGROUP_BASE="/sys/fs/cgroup/projeto2"
+ENVS_BASE="/var/lib/projeto2/envs"
+
+valida_id() {
+    local id="${1:-}"
+    if [[ ! "$id" =~ ^[0-9]+$ ]]; then
+        echo '{"sucesso":false,"erro":"ID invalido (deve ser numerico)"}'
+        exit 1
+    fi
+}
+
+cmd_init() {
+    mkdir -p "$CGROUP_BASE" "$ENVS_BASE"
+    echo "+cpu +memory +io +pids" > /sys/fs/cgroup/cgroup.subtree_control 2>/dev/null || true
+    echo "+cpu +memory +io +pids" > "$CGROUP_BASE/cgroup.subtree_control" 2>/dev/null || true
+    echo '{"sucesso":true,"mensagem":"init ok"}'
+}
+
+cmd_create() {
+    local id="${1:-}"
+    valida_id "$id"
+    shift
+
+    local cpu=50 mem=256 io_r="" io_w="" net=0
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --cpu) cpu="$2"; shift 2 ;;
+            --mem) mem="$2"; shift 2 ;;
+            --io-read) io_r="$2"; shift 2 ;;
+            --io-write) io_w="$2"; shift 2 ;;
+            --net-isolate) net=1; shift ;;
+            *) shift ;;
+        esac
+    done
+
+    local cgroup="$CGROUP_BASE/env-$id"
+    local dir="$ENVS_BASE/env-$id"
+    mkdir -p "$cgroup" "$dir"
+
+    echo "$((cpu * 1000)) 100000" > "$cgroup/cpu.max"
+    echo "$((mem * 1024 * 1024))" > "$cgroup/memory.max"
+    echo 0 > "$cgroup/memory.swap.max" 2>/dev/null || true
+    echo 256 > "$cgroup/pids.max" 2>/dev/null || true
+
+    if [[ -n "$io_r" || -n "$io_w" ]]; then
+        local dev
+        dev=$(findmnt -nvo SOURCE / 2>/dev/null || true)
+        local maj_min
+        maj_min=$(lsblk -no MAJ:MIN "$dev" 2>/dev/null | head -n1 | tr -d ' ' || true)
+        if [[ -n "$maj_min" && -f "$cgroup/io.max" ]]; then
+            local limite=""
+            [[ -n "$io_r" ]] && limite="rbps=$((io_r * 1024 * 1024))"
+            [[ -n "$io_w" ]] && limite="${limite}${limite:+ }wbps=$((io_w * 1024 * 1024))"
+            echo "$maj_min $limite" > "$cgroup/io.max" 2>/dev/null || true
+        fi
+    fi
+
+    [[ "$net" -eq 1 ]] && touch "$dir/net_isolate"
+
+    echo "{\"sucesso\":true,\"id\":$id,\"status\":\"criado\"}"
+}
+
+cmd_start() {
+    local id="${1:-}"
+    valida_id "$id"
+
+    local cgroup="$CGROUP_BASE/env-$id"
+    local dir="$ENVS_BASE/env-$id"
+
+    if [[ ! -d "$cgroup" || ! -f "$dir/script.sh" ]]; then
+        echo '{"sucesso":false,"erro":"ambiente ou script.sh nao encontrado"}'
+        exit 1
+    fi
+
+    local net_flag=""
+    [[ -f "$dir/net_isolate" ]] && net_flag="--net"
+
+    chmod +x "$dir/script.sh" 2>/dev/null || true
+    rm -f "$dir/exit_code"
+
+    setsid bash -c "
+        echo \$\$ > '$cgroup/cgroup.procs'
+        unshare --pid --fork --mount-proc --uts --ipc --mount $net_flag bash -c '
+            hostname \"env-$id\"
+            exec /bin/bash \"$dir/script.sh\"
+        ' >> '$dir/output.log' 2>&1
+        echo \$? > '$dir/exit_code'
+    " >/dev/null 2>&1 &
+
+    local pid=$!
+    echo "$pid" > "$dir/pid"
+
+    echo "{\"sucesso\":true,\"id\":$id,\"pid\":$pid,\"status\":\"em_execucao\"}"
+}
+
+cmd_status() { valida_id "${1:-}"; echo '{"sucesso":false,"erro":"status sera implementado no C4"}'; }
+cmd_stop()   { valida_id "${1:-}"; echo '{"sucesso":false,"erro":"stop sera implementado no C4"}'; }
+cmd_remove() { valida_id "${1:-}"; echo '{"sucesso":false,"erro":"remove sera implementado no C4"}'; }
+
+subcmd="${1:-}"
+shift || true
+
+case "$subcmd" in
+    init)   cmd_init "$@" ;;
+    create) cmd_create "$@" ;;
+    start)  cmd_start "$@" ;;
+    status) cmd_status "$@" ;;
+    stop)   cmd_stop "$@" ;;
+    remove) cmd_remove "$@" ;;
+    *)
+        echo "{\"sucesso\":false,\"erro\":\"Comando desconhecido: $subcmd\"}"
+        exit 1
+        ;;
+esac

@@ -1,5 +1,6 @@
 <?php
 
+require_once __DIR__ . '/envctl.php';
 require_once __DIR__ . '/db.php';
 
 // Lista os ambientes, do mais recente para o mais antigo.
@@ -124,4 +125,109 @@ function remover_ambiente(int $id): bool
     $stmt->execute(['id' => $id]);
 
     return $stmt->rowCount() > 0;
+}
+
+// Consulta o motor para atualizar ambientes registrados como em execução.
+function sincronizar_status(): void
+{
+    $ambientes = db()->query(
+        "SELECT id FROM ambientes WHERE status = 'em_execucao'"
+    )->fetchAll();
+
+    foreach ($ambientes as $ambiente) {
+        $id = (int) $ambiente['id'];
+
+        try {
+            $resposta = executar_envctl('status', [$id]);
+
+            if (($resposta['id'] ?? null) !== $id) {
+                throw new RuntimeException(
+                    'O motor retornou um ID diferente do solicitado.'
+                );
+            }
+
+            $status = $resposta['status'] ?? null;
+
+            if (!in_array(
+                $status,
+                ['em_execucao', 'terminado', 'erro'],
+                true
+            )) {
+                throw new RuntimeException(
+                    'O motor retornou um estado inesperado para um ambiente em execução.'
+                );
+            }
+
+            // O status do Caio retorna pid como texto, podendo estar vazio.
+            $pidRecebido = $resposta['pid'] ?? '';
+            $pid = null;
+
+            if ($status === 'em_execucao') {
+                if (
+                    !is_string($pidRecebido)
+                    && !is_int($pidRecebido)
+                ) {
+                    throw new RuntimeException('PID com formato inválido.');
+                }
+
+                $pid = filter_var(
+                    $pidRecebido,
+                    FILTER_VALIDATE_INT,
+                    ['options' => [
+                        'min_range' => 1,
+                        'max_range' => 4294967295,
+                    ]]
+                );
+
+                if ($pid === false) {
+                    throw new RuntimeException('PID inválido para ambiente em execução.');
+                }
+            }
+
+            if (!array_key_exists('exit_code', $resposta)) {
+                throw new RuntimeException('Resposta sem exit_code.');
+            }
+
+            $exitCode = $resposta['exit_code'];
+
+            if (
+                $exitCode !== null
+                && (!is_int($exitCode) || $exitCode < 0 || $exitCode > 255)
+            ) {
+                throw new RuntimeException('Código de saída inválido.');
+            }
+
+            $motivo = null;
+
+            if ($status === 'erro') {
+                $motivo = $exitCode !== null && $exitCode !== 0
+                    ? "Execução terminou com código $exitCode."
+                    : 'O motor informou erro na execução; consulte o output.';
+            }
+
+            // Evita sobrescrever uma parada já registrada por outra requisição.
+            $stmt = db()->prepare(
+                "UPDATE ambientes
+                 SET status = :status,
+                     pid = :pid,
+                     exit_code = :exit_code,
+                     motivo = :motivo
+                 WHERE id = :id AND status = 'em_execucao'"
+            );
+
+            $stmt->execute([
+                'status' => $status,
+                'pid' => $pid,
+                'exit_code' => $exitCode,
+                'motivo' => $motivo,
+                'id' => $id,
+            ]);
+        } catch (Throwable $e) {
+            // Uma falha de consulta não prova que o processo terminou.
+            // Preserva o registro e permite consultar os demais ambientes.
+            error_log(
+                "Falha ao sincronizar ambiente #$id: " . $e->getMessage()
+            );
+        }
+    }
 }

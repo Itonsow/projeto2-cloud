@@ -1,0 +1,2 @@
+# O Apache pode executar apenas o envctl como root, sem senha.
+www-data ALL=(root) NOPASSWD: /usr/local/bin/envctl

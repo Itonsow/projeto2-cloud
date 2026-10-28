@@ -5,7 +5,8 @@ REPO = "https://github.com/Itonsow/projeto2-cloud.git"
 BRANCH = ENV.fetch("P2_BRANCH", "main")
 
 Vagrant.configure("2") do |config|
-	config.vm.box = "ubuntu/jammy64" # Ubuntu 22.04
+	# Ubuntu 22.04: o vagrant escolhe ARM(mac) e AMD64 em intel/AMD
+	config.vm.box = "bento/ubuntu-22.04"
 
 	config.vm.define "projeto2" do |projeto2|
 		projeto2.vm.hostname = "projeto2"
